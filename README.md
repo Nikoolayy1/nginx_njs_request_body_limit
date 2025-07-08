@@ -11,4 +11,4 @@ I have used the example rate limiter from https://github.com/nginx/njs-examples 
 It works as expected. The "r.internalRedirect('@app-backend');" internal redirect is needed as nginx by default does not populate or save the request body and this is why the request needs to pass 2 times in nginx!
 
 
-The nginx plus rootless container is a great option for F5 XC RE where root containers are not accepted. 
+The nginx plus rootless container is a great option for F5 XC RE where root containers are not accepted. This code is useful as XC native rate limiters can't check the Request Body at the moment.
