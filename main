@@ -1,0 +1,173 @@
+const defaultResponse = "0";
+const user = 'username';
+const pass = 'username';
+
+function ratelimit(r) {
+
+
+      switch (r.method) {
+
+
+      case 'POST':
+
+         var body  = r.requestText;
+
+          r.log(`body: ${body}`);
+
+
+
+     if (r.headersIn['Content-Type'] != 'application/x-www-form-urlencoded' || !body.length)
+
+          {
+
+              r.internalRedirect('@app-backend');
+
+              return;
+
+          }
+
+
+
+           var result_user = body.includes(user);
+           var result_pass = body.includes(pass);
+
+
+
+                      if (!result_user) {
+
+
+
+                              r.internalRedirect('@app-backend');
+
+                             return;
+
+                      }
+
+
+
+
+    const zone = r.variables['rl_zone_name'];
+
+    const kv = zone && ngx.shared && ngx.shared[zone];
+
+    if (!kv) {
+
+        r.log(`ratelimit: ${zone} js_shared_dict_zone not found`);
+
+        r.internalRedirect('@app-backend');
+
+        return;
+
+    }
+
+
+
+    const key = r.variables['rl_key'] || r.variables['remote_addr'];
+
+    const window = Number(r.variables['rl_windows_ms']) || 60000;
+
+    const limit = Number(r.variables['rl_limit']) || 10;
+
+    const now = Date.now();
+
+
+
+
+    let requestData = kv.get(key);
+
+    if (requestData === undefined || requestData.length === 0) {
+
+        requestData = { timestamp: now, count: 1 }
+
+        kv.set(key, JSON.stringify(requestData));
+
+        r.internalRedirect('@app-backend');
+
+        return;
+
+    }
+
+    try {
+
+        requestData = JSON.parse(requestData);
+
+    } catch (e) {
+
+        requestData = { timestamp: now, count: 1 }
+
+        kv.set(key, JSON.stringify(requestData));
+
+        r.internalRedirect('@app-backend');
+
+        return;
+
+    }
+
+    if (!requestData) {
+
+        requestData = { timestamp: now, count: 1 }
+
+        kv.set(key, JSON.stringify(requestData));
+
+        r.internalRedirect('@app-backend');
+
+        return;
+
+    }
+
+    if (now - requestData.timestamp >= window) {
+
+        requestData.timestamp = now;
+
+        requestData.count = 1;
+
+    } else {
+
+        requestData.count++;
+
+    }
+
+    const elapsed = now - requestData.timestamp;
+
+    r.log(`limit: ${limit} window: ${window} elapsed: ${elapsed}  count: ${requestData.count} timestamp: ${requestData.timestamp}`)
+
+    let retryAfter = 0;
+
+    if (requestData.count > limit) {
+
+        retryAfter = 1;
+
+    }
+
+    kv.set(key, JSON.stringify(requestData));
+
+
+
+
+   if (retryAfter) {
+
+
+
+
+            r.return(401, "Unauthorized\n");
+
+           return;
+
+   }
+
+
+
+      default:
+
+
+           r.internalRedirect('@app-backend');
+
+           return;
+
+      }
+
+  }
+
+
+
+export default {sub, header, ratelimit, parseRequestBody, log};
